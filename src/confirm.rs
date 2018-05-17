@@ -233,6 +233,26 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
         }
     }
 
+    fn hash(transport: T, hash: H256, poll_interval: Duration, confirmations: usize) -> Self {
+        let state = if confirmations > 0 {
+            let confirmation_check = TransactionReceiptBlockNumberCheck::new(Eth::new(transport.clone()), hash.clone());
+            let eth = Eth::new(transport.clone());
+            let eth_filter = EthFilter::new(transport.clone());
+            let wait = wait_for_confirmations(eth, eth_filter, poll_interval, confirmations, confirmation_check);
+            SendTransactionWithConfirmationState::WaitForConfirmations(hash, wait)
+        } else {
+            let receipt_future = Eth::new(&transport).transaction_receipt(hash);
+            SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
+        };
+
+        SendTransactionWithConfirmation {
+            state,
+            transport,
+            poll_interval,
+            confirmations,
+        }
+    }
+
     pub(crate) fn from_err<E: Into<Error>>(transport: T, err: E) -> Self {
         SendTransactionWithConfirmation {
             state: SendTransactionWithConfirmationState::Error(Some(err.into())),
@@ -256,23 +276,12 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                         .expect("Error is initialized initially; future polled only once; qed"));
                 }
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
-                    let hash = try_ready!(future.poll());
-                    if self.confirmations > 0 {
-                        let confirmation_check = TransactionReceiptBlockNumberCheck::new(Eth::new(self.transport.clone()), hash.clone());
-                        let eth = Eth::new(self.transport.clone());
-                        let eth_filter = EthFilter::new(self.transport.clone());
-                        let wait = wait_for_confirmations(
-                            eth,
-                            eth_filter,
-                            self.poll_interval,
-                            self.confirmations,
-                            confirmation_check,
-                        );
-                        SendTransactionWithConfirmationState::WaitForConfirmations(hash, wait)
-                    } else {
-                        let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
-                        SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
-                    }
+                    Self::hash(
+                        self.transport.clone(),
+                        try_ready!(future.poll()),
+                        self.poll_interval,
+                        self.confirmations,
+                    ).state
                 }
                 SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
                     let _confirmed = try_ready!(Future::poll(future));
@@ -303,6 +312,19 @@ where
     T: Transport,
 {
     SendTransactionWithConfirmation::raw(transport, tx, poll_interval, confirmations)
+}
+
+/// Given a transaction hash, returns future resolved after transaction is confirmed
+pub fn wait_for_transaction_confirmation<T>(
+    transport: T,
+    hash: H256,
+    poll_interval: Duration,
+    confirmations: usize,
+) -> SendTransactionWithConfirmation<T>
+where
+    T: Transport,
+{
+    SendTransactionWithConfirmation::hash(transport, hash, poll_interval, confirmations)
 }
 
 #[cfg(test)]
