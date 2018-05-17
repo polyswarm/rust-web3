@@ -241,22 +241,24 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
     }
 
     fn hash(transport: T, hash: H256, poll_interval: Duration, confirmations: usize) -> Self {
-        let state = if confirmations > 0 {
+        SendTransactionWithConfirmation {
+            state: Self::state_from_hash(transport.clone(), hash, poll_interval, confirmations),
+            transport,
+            poll_interval,
+            confirmations,
+        }
+    }
+
+    fn state_from_hash(transport: T, hash: H256, poll_interval: Duration, confirmations: usize) -> SendTransactionWithConfirmationState<T> {
+        if confirmations > 0 {
             let confirmation_check = TransactionReceiptBlockNumberCheck::new(Eth::new(transport.clone()), hash.clone());
             let eth = Eth::new(transport.clone());
-            let eth_filter = EthFilter::new(transport.clone());
+            let eth_filter = EthFilter::new(transport);
             let wait = wait_for_confirmations(eth, eth_filter, poll_interval, confirmations, confirmation_check);
             SendTransactionWithConfirmationState::WaitForConfirmations(hash, wait)
         } else {
             let receipt_future = Eth::new(&transport).transaction_receipt(hash);
             SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
-        };
-
-        SendTransactionWithConfirmation {
-            state,
-            transport,
-            poll_interval,
-            confirmations,
         }
     }
 
@@ -283,12 +285,12 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                         .expect("Error is initialized initially; future polled only once; qed"));
                 }
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
-                    Self::hash(
+                    Self::state_from_hash(
                         self.transport.clone(),
                         try_ready!(future.poll()),
                         self.poll_interval,
                         self.confirmations,
-                    ).state
+                    )
                 }
                 SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
                     let _confirmed = try_ready!(Future::poll(future));
