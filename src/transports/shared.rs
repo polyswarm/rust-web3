@@ -1,7 +1,7 @@
-use std::{fmt, mem, thread};
-use std::sync::{self, atomic, Arc};
-use futures::{self, Future};
 use futures::sync::oneshot;
+use futures::{self, Future};
+use std::sync::{self, atomic, Arc};
+use std::{fmt, mem, thread};
 use transports::Result;
 use transports::tokio_core::reactor;
 use {Error, ErrorKind, RequestId};
@@ -50,18 +50,16 @@ impl EventLoopHandle {
             }
         });
 
-        rx.recv()
-            .expect("Thread is always spawned.")
-            .map(|(http, remote)| {
-                (
-                    EventLoopHandle {
-                        thread: Some(eloop),
-                        remote,
-                        done,
-                    },
-                    http,
-                )
-            })
+        rx.recv().expect("Thread is always spawned.").map(|(http, remote)| {
+            (
+                EventLoopHandle {
+                    thread: Some(eloop),
+                    remote,
+                    done,
+                },
+                http,
+            )
+        })
     }
 
     /// Returns event loop remote.

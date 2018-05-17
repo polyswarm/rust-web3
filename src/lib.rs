@@ -38,8 +38,8 @@ pub mod types;
 
 pub mod confirm;
 
-pub use error::{Error, ErrorKind};
 pub use api::Web3;
+pub use error::{Error, ErrorKind};
 
 /// RPC result
 pub type Result<T> = Box<futures::Future<Item = T, Error = Error> + Send + 'static>;
@@ -143,10 +143,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use super::{rpc, Error, RequestId, Transport};
     use api::Web3;
     use futures::Future;
-    use super::{rpc, Error, RequestId, Transport};
+    use std::sync::Arc;
 
     #[derive(Debug, Clone)]
     struct FakeTransport;

@@ -1,15 +1,15 @@
 //! Contract deployment utilities
 
-use std::time;
 use ethabi;
 use futures::{Async, Future, Poll};
+use std::time;
 
+use Transport;
 use api::{Eth, Namespace};
 use confirm;
 use contract::tokens::Tokenize;
 use contract::{Contract, Options};
 use types::{Address, Bytes, TransactionRequest};
-use Transport;
 
 pub use contract::error::deploy::{Error, ErrorKind};
 
@@ -54,7 +54,9 @@ impl<T: Transport> Builder<T> {
 
         let params = params.into_tokens();
         let data = match (abi.constructor(), params.is_empty()) {
-            (None, false) => return Err(ethabi::ErrorKind::Msg(format!("Constructor is not defined in the ABI.")).into()),
+            (None, false) => {
+                return Err(ethabi::ErrorKind::Msg(format!("Constructor is not defined in the ABI.")).into())
+            }
             (None, true) => code.into(),
             (Some(constructor), _) => constructor.encode_input(code.into(), &params)?,
         };
@@ -111,11 +113,11 @@ impl<T: Transport> Future for PendingContract<T> {
 #[cfg(test)]
 mod tests {
     use api::{self, Namespace};
+    use contract::{Contract, Options};
     use futures::Future;
     use helpers::tests::TestTransport;
     use rpc;
     use types::U256;
-    use contract::{Contract, Options};
 
     #[test]
     fn should_deploy_a_contract() {
@@ -145,25 +147,15 @@ mod tests {
         transport.add_response(receipt);
 
         {
-            let builder = Contract::deploy(
-                api::Eth::new(&transport),
-                include_bytes!("./res/token.json"),
-            ).unwrap();
+            let builder = Contract::deploy(api::Eth::new(&transport), include_bytes!("./res/token.json")).unwrap();
 
             // when
             builder
-                .options(Options::with(|opt| {
-                    opt.value = Some(5.into())
-                }))
+                .options(Options::with(|opt| opt.value = Some(5.into())))
                 .confirmations(1)
                 .execute(
                     vec![1, 2, 3, 4],
-                    (
-                        U256::from(1_000_000),
-                        "My Token".to_owned(),
-                        3u64,
-                        "MT".to_owned(),
-                    ),
+                    (U256::from(1_000_000), "My Token".to_owned(), 3u64, "MT".to_owned()),
                     5.into(),
                 )
                 .unwrap()

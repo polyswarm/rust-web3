@@ -1,14 +1,14 @@
-use std::mem;
 use ethabi;
 use futures::{Async, Future, Poll};
 use serde;
+use std::mem;
 
+use Error as ApiError;
 use contract;
 use contract::tokens::Detokenize;
 use helpers;
 use rpc;
 use types::Bytes;
-use Error as ApiError;
 
 #[derive(Debug)]
 enum ResultType<T, F> {
@@ -83,9 +83,7 @@ where
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if let ResultType::Decodable(ref mut inner, ref function) = self.inner {
             let bytes: Bytes = try_ready!(inner.poll());
-            return Ok(Async::Ready(
-                T::from_tokens(function.decode_output(&bytes.0)?)?,
-            ));
+            return Ok(Async::Ready(T::from_tokens(function.decode_output(&bytes.0)?)?));
         }
 
         match mem::replace(&mut self.inner, ResultType::Done) {

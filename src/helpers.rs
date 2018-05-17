@@ -2,8 +2,8 @@
 
 use std::marker::PhantomData;
 
-use rpc;
 use futures::{Async, Future, Poll};
+use rpc;
 use serde;
 use serde_json;
 use {Error, ErrorKind};
@@ -36,9 +36,7 @@ where
 
     fn poll(&mut self) -> Poll<T, Error> {
         match self.inner.poll() {
-            Ok(Async::Ready(x)) => serde_json::from_value(x)
-                .map(Async::Ready)
-                .map_err(Into::into),
+            Ok(Async::Ready(x)) => serde_json::from_value(x).map(Async::Ready).map_err(Into::into),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => Err(e),
         }
@@ -91,11 +89,11 @@ pub fn to_result_from_output(output: rpc::Output) -> Result<rpc::Value, Error> {
 #[macro_use]
 #[cfg(test)]
 pub mod tests {
+    use futures;
+    use rpc;
     use serde_json;
     use std::cell::RefCell;
     use std::collections::VecDeque;
-    use futures;
-    use rpc;
     use {ErrorKind, RequestId, Result, Transport};
 
     #[derive(Debug, Default, Clone)]
@@ -138,15 +136,9 @@ pub mod tests {
             let idx = self.asserted;
             self.asserted += 1;
 
-            let (m, p) = self.requests
-                .borrow()
-                .get(idx)
-                .expect("Expected result.")
-                .clone();
+            let (m, p) = self.requests.borrow().get(idx).expect("Expected result.").clone();
             assert_eq!(&m, method);
-            let p: Vec<String> = p.into_iter()
-                .map(|p| serde_json::to_string(&p).unwrap())
-                .collect();
+            let p: Vec<String> = p.into_iter().map(|p| serde_json::to_string(&p).unwrap()).collect();
             assert_eq!(p, params);
         }
 

@@ -1,12 +1,12 @@
 //! Batching Transport
 
-use std::mem;
-use std::collections::BTreeMap;
-use std::sync::Arc;
-use futures::{self, future, Future};
 use futures::sync::oneshot;
+use futures::{self, future, Future};
 use parking_lot::Mutex;
 use rpc;
+use std::collections::BTreeMap;
+use std::mem;
+use std::sync::Arc;
 use transports::Result;
 use {BatchTransport, Error as RpcError, ErrorKind, RequestId, Transport};
 
@@ -140,11 +140,7 @@ impl Future for SingleResult {
     type Error = RpcError;
 
     fn poll(&mut self) -> futures::Poll<Self::Item, Self::Error> {
-        let res = try_ready!(
-            self.0
-                .poll()
-                .map_err(|_| RpcError::from(ErrorKind::Internal))
-        );
+        let res = try_ready!(self.0.poll().map_err(|_| RpcError::from(ErrorKind::Internal)));
         res.map(futures::Async::Ready)
     }
 }

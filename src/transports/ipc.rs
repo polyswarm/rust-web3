@@ -23,16 +23,16 @@ use transports::tokio_io::io::{ReadHalf, WriteHalf};
 use {BatchTransport, DuplexTransport, Error, ErrorKind, RequestId, Transport};
 
 macro_rules! try_nb {
-  ($e:expr) => (match $e {
-    Ok(t) => t,
-    Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => {
-      return Ok(futures::Async::NotReady)
-    }
-    Err(e) => {
-      warn!("Unexpected IO error: {:?}", e);
-      return Err(())
-    },
-  })
+    ($e:expr) => {
+        match $e {
+            Ok(t) => t,
+            Err(ref e) if e.kind() == io::ErrorKind::WouldBlock => return Ok(futures::Async::NotReady),
+            Err(e) => {
+                warn!("Unexpected IO error: {:?}", e);
+                return Err(());
+            }
+        }
+    };
 }
 
 type Pending = oneshot::Sender<Result<Vec<Result<rpc::Value>>>>;
@@ -151,9 +151,7 @@ impl BatchTransport for Ipc {
         T: IntoIterator<Item = (RequestId, rpc::Call)>,
     {
         let mut it = requests.into_iter();
-        let (id, first) = it.next()
-            .map(|x| (x.0, Some(x.1)))
-            .unwrap_or_else(|| (0, None));
+        let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
         let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
         self.send_request(id, rpc::Request::Batch(requests), Ok)
     }
@@ -199,10 +197,7 @@ impl Future for WriteStream {
                     // Ask for more to write
                     let to_send = try_ready!(self.incoming.poll());
                     if let Some(to_send) = to_send {
-                        trace!(
-                            "Got new message to write: {:?}",
-                            String::from_utf8_lossy(&to_send)
-                        );
+                        trace!("Got new message to write: {:?}", String::from_utf8_lossy(&to_send));
                         WriteState::Writing {
                             buffer: to_send,
                             current_pos: 0,
@@ -362,11 +357,11 @@ mod tests {
     extern crate tokio_core;
     extern crate tokio_uds;
 
-    use std::io::{self, Read, Write};
     use super::Ipc;
+    use Transport;
     use futures::{self, Future};
     use rpc;
-    use Transport;
+    use std::io::{self, Read, Write};
 
     #[test]
     fn should_send_a_request() {
@@ -458,10 +453,7 @@ mod tests {
         // then
         assert_eq!(
             eloop.run(res1.join(res2)),
-            Ok((
-                rpc::Value::String("x".into()),
-                rpc::Value::String("x".into())
-            ))
+            Ok((rpc::Value::String("x".into()), rpc::Value::String("x".into())))
         );
     }
 }

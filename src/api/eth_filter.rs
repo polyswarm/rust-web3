@@ -1,11 +1,11 @@
 //! `Eth` namespace, filters.
 
+use futures::{Future, Poll, Stream};
+use serde::de::DeserializeOwned;
 use std::marker::PhantomData;
 use std::time::Duration;
 use std::vec;
-use serde::de::DeserializeOwned;
 use tokio_timer::{Interval, Timer};
-use futures::{Future, Poll, Stream};
 
 use api::Namespace;
 use helpers::{self, CallResult};
@@ -50,17 +50,9 @@ impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
         loop {
             let next_state = match self.state {
                 FilterStreamState::WaitForInterval => {
-                    let _ready = try_ready!(
-                        self.interval
-                            .poll()
-                            .map_err(|_| Error::from(ErrorKind::Unreachable))
-                    );
+                    let _ready = try_ready!(self.interval.poll().map_err(|_| Error::from(ErrorKind::Unreachable)));
                     let id = helpers::serialize(&self.base.id);
-                    let future = CallResult::new(
-                        self.base
-                            .transport
-                            .execute("eth_getFilterChanges", vec![id]),
-                    );
+                    let future = CallResult::new(self.base.transport.execute("eth_getFilterChanges", vec![id]));
                     FilterStreamState::GetFilterChanges(future)
                 }
                 FilterStreamState::GetFilterChanges(ref mut future) => {
@@ -202,9 +194,7 @@ where
         let id = try_ready!(self.future.poll());
         let result = BaseFilter {
             id,
-            transport: self.transport
-                .take()
-                .expect("future polled after ready; qed"),
+            transport: self.transport.take().expect("future polled after ready; qed"),
             item: PhantomData,
         };
         Ok(result.into())
@@ -250,10 +240,10 @@ impl<T: Transport> EthFilter<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
     use futures::{Future, Stream};
-    use serde_json;
     use rpc::Value;
+    use serde_json;
+    use std::time::Duration;
 
     use api::Namespace;
     use helpers::tests::TestTransport;
@@ -358,9 +348,7 @@ mod tests {
         assert_eq!(result, Ok(Some(vec![log])));
         transport.assert_request(
             "eth_newFilter",
-            &[
-                r#"{"address":"0x0000000000000000000000000000000000000002"}"#.into(),
-            ],
+            &[r#"{"address":"0x0000000000000000000000000000000000000002"}"#.into()],
         );
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_no_more_requests();
@@ -428,18 +416,11 @@ mod tests {
 
             // when
             let filter = eth.create_blocks_filter().wait().unwrap();
-            filter
-                .stream(Duration::from_secs(0))
-                .take(4)
-                .collect()
-                .wait()
+            filter.stream(Duration::from_secs(0)).take(4).collect().wait()
         };
 
         // then
-        assert_eq!(
-            result,
-            Ok(vec![0x456.into(), 0x457.into(), 0x458.into(), 0x459.into()])
-        );
+        assert_eq!(result, Ok(vec![0x456.into(), 0x457.into(), 0x458.into(), 0x459.into()]));
         transport.assert_request("eth_newBlockFilter", &[]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);
         transport.assert_request("eth_getFilterChanges", &[r#""0x123""#.into()]);

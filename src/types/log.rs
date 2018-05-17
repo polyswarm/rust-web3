@@ -119,7 +119,13 @@ impl FilterBuilder {
     }
 
     /// Topics
-    pub fn topics(mut self, topic1: Option<Vec<H256>>, topic2: Option<Vec<H256>>, topic3: Option<Vec<H256>>, topic4: Option<Vec<H256>>) -> Self {
+    pub fn topics(
+        mut self,
+        topic1: Option<Vec<H256>>,
+        topic2: Option<Vec<H256>>,
+        topic3: Option<Vec<H256>>,
+        topic4: Option<Vec<H256>>,
+    ) -> Self {
         let mut topics = vec![topic1, topic2, topic3, topic4]
             .into_iter()
             .rev()

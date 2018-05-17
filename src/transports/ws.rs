@@ -5,14 +5,14 @@ extern crate websocket;
 use std::collections::BTreeMap;
 use std::sync::{atomic, Arc};
 
+use self::websocket::url::Url;
+use self::websocket::{ClientBuilder, OwnedMessage};
 use api::SubscriptionId;
-use futures::{self, Future, Sink, Stream};
 use futures::sync::{mpsc, oneshot};
+use futures::{self, Future, Sink, Stream};
 use helpers;
 use parking_lot::Mutex;
 use rpc;
-use self::websocket::{ClientBuilder, OwnedMessage};
-use self::websocket::url::Url;
 use transports::Result;
 use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
@@ -93,9 +93,9 @@ impl WebSocket {
                                         if let (Some(&rpc::Value::String(ref id)), Some(result)) = (id, result) {
                                             let id: SubscriptionId = id.clone().into();
                                             if let Some(stream) = subscriptions_.lock().get(&id) {
-                                                return stream
-                                                    .unbounded_send(result.clone())
-                                                    .map_err(|_| ErrorKind::Transport("Error sending notification".into()).into());
+                                                return stream.unbounded_send(result.clone()).map_err(|_| {
+                                                    ErrorKind::Transport("Error sending notification".into()).into()
+                                                });
                                             } else {
                                                 warn!("Got notification for unknown subscription (id: {:?})", id);
                                             }
@@ -188,14 +188,12 @@ impl Transport for WebSocket {
     }
 
     fn send(&self, id: RequestId, request: rpc::Call) -> Self::Out {
-        self.send_request(
-            id,
-            rpc::Request::Single(request),
-            |response| match response.into_iter().next() {
+        self.send_request(id, rpc::Request::Single(request), |response| {
+            match response.into_iter().next() {
                 Some(res) => res,
                 None => Err(ErrorKind::InvalidResponse("Expected single, got batch.".into()).into()),
-            },
-        )
+            }
+        })
     }
 }
 
@@ -207,9 +205,7 @@ impl BatchTransport for WebSocket {
         T: IntoIterator<Item = (RequestId, rpc::Call)>,
     {
         let mut it = requests.into_iter();
-        let (id, first) = it.next()
-            .map(|x| (x.0, Some(x.1)))
-            .unwrap_or_else(|| (0, None));
+        let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
         let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
         self.send_request(id, rpc::Request::Batch(requests), Ok)
     }
@@ -236,13 +232,13 @@ mod tests {
     extern crate tokio_core;
     extern crate websocket;
 
-    use super::WebSocket;
-    use futures::{Future, Sink, Stream};
-    use rpc;
     use self::websocket::async::Server;
     use self::websocket::message::OwnedMessage;
     use self::websocket::server::InvalidConnection;
+    use super::WebSocket;
     use Transport;
+    use futures::{Future, Sink, Stream};
+    use rpc;
 
     #[test]
     fn should_send_a_request() {
@@ -267,10 +263,7 @@ mod tests {
                                 OwnedMessage::Ping(p) => Some(OwnedMessage::Pong(p)),
                                 OwnedMessage::Pong(_) => None,
                                 OwnedMessage::Text(t) => {
-                                    assert_eq!(
-                                        t,
-                                        r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#
-                                    );
+                                    assert_eq!(t, r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["1"],"id":1}"#);
                                     Some(OwnedMessage::Text(
                                         r#"{"jsonrpc":"2.0","id":1,"result":"x"}"#.to_owned(),
                                     ))

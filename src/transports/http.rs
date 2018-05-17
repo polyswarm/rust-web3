@@ -12,6 +12,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::{self, AtomicUsize};
 
+use self::url::Url;
 use futures::sync::{mpsc, oneshot};
 use futures::{self, future, Future, Stream};
 use helpers;
@@ -20,7 +21,6 @@ use serde_json;
 use transports::Result;
 use transports::shared::{EventLoopHandle, Response};
 use transports::tokio_core::reactor;
-use self::url::Url;
 use {BatchTransport, Error, ErrorKind, RequestId, Transport};
 
 impl From<hyper::Error> for Error {
@@ -89,9 +89,7 @@ impl Http {
         handle.spawn(
             write_receiver
                 .map(move |(request, tx): (_, Pending)| {
-                    client
-                        .request(request)
-                        .then(move |response| Ok((response, tx)))
+                    client.request(request).then(move |response| Ok((response, tx)))
                 })
                 .buffer_unordered(max_parallel)
                 .for_each(|(response, tx)| {
@@ -143,18 +141,15 @@ impl Http {
 
         let mut req = hyper::client::Request::new(hyper::Method::Post, self.url.clone());
         req.headers_mut().set(hyper::header::ContentType::json());
-        req.headers_mut()
-            .set(hyper::header::UserAgent::new("web3.rs"));
+        req.headers_mut().set(hyper::header::UserAgent::new("web3.rs"));
         let len = request.len();
         // Don't send chunked request
         if len < MAX_SINGLE_CHUNK {
-            req.headers_mut()
-                .set(hyper::header::ContentLength(len as u64));
+            req.headers_mut().set(hyper::header::ContentLength(len as u64));
         }
         // Send basic auth header
         if let Some(ref basic_auth) = self.basic_auth {
-            req.headers_mut()
-                .set(hyper::header::Authorization(basic_auth.clone()));
+            req.headers_mut().set(hyper::header::Authorization(basic_auth.clone()));
         }
         req.set_body(request);
 
@@ -190,9 +185,7 @@ impl BatchTransport for Http {
         T: IntoIterator<Item = (RequestId, rpc::Call)>,
     {
         let mut it = requests.into_iter();
-        let (id, first) = it.next()
-            .map(|x| (x.0, Some(x.1)))
-            .unwrap_or_else(|| (0, None));
+        let (id, first) = it.next().map(|x| (x.0, Some(x.1))).unwrap_or_else(|| (0, None));
         let requests = first.into_iter().chain(it.map(|x| x.1)).collect();
 
         self.send_request(id, rpc::Request::Batch(requests), batch_response)
@@ -201,7 +194,8 @@ impl BatchTransport for Http {
 
 /// Parse bytes RPC response into `Result`.
 fn single_response<T: Deref<Target = [u8]>>(response: T) -> Result<rpc::Value> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
+    let response =
+        serde_json::from_slice(&*response).map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
 
     match response {
         rpc::Response::Single(output) => helpers::to_result_from_output(output),
@@ -211,13 +205,11 @@ fn single_response<T: Deref<Target = [u8]>>(response: T) -> Result<rpc::Value> {
 
 /// Parse bytes RPC batch response into `Result`.
 fn batch_response<T: Deref<Target = [u8]>>(response: T) -> Result<Vec<Result<rpc::Value>>> {
-    let response = serde_json::from_slice(&*response).map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
+    let response =
+        serde_json::from_slice(&*response).map_err(|e| Error::from(ErrorKind::InvalidResponse(format!("{:?}", e))))?;
 
     match response {
-        rpc::Response::Batch(outputs) => Ok(outputs
-            .into_iter()
-            .map(helpers::to_result_from_output)
-            .collect()),
+        rpc::Response::Batch(outputs) => Ok(outputs.into_iter().map(helpers::to_result_from_output).collect()),
         _ => Err(ErrorKind::InvalidResponse("Expected batch, got single.".into()).into()),
     }
 }

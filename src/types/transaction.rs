@@ -63,8 +63,8 @@ pub struct Receipt {
 
 #[cfg(test)]
 mod tests {
-    use serde_json;
     use super::Receipt;
+    use serde_json;
 
     #[test]
     fn test_deserialize_receipt() {

@@ -35,10 +35,7 @@ impl<T: Transport> Personal<T> {
     /// Returns the address of created account.
     pub fn new_account(&self, password: &str) -> CallResult<Address, T::Out> {
         let password = helpers::serialize(&password);
-        CallResult::new(
-            self.transport
-                .execute("personal_newAccount", vec![password]),
-        )
+        CallResult::new(self.transport.execute("personal_newAccount", vec![password]))
     }
 
     /// Unlocks the account with given password for some period of time (or single transaction).

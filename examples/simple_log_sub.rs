@@ -2,15 +2,16 @@ extern crate rustc_hex;
 extern crate tokio_core;
 extern crate web3;
 
-use std::time;
 use rustc_hex::FromHex;
+use std::time;
 use web3::contract::{Contract, Options};
 use web3::futures::{Future, Stream};
 use web3::types::FilterBuilder;
 
 fn main() {
     let mut eloop = tokio_core::reactor::Core::new().unwrap();
-    let web3 = web3::Web3::new(web3::transports::WebSocket::with_event_loop("ws://localhost:8546", &eloop.handle()).unwrap());
+    let web3 =
+        web3::Web3::new(web3::transports::WebSocket::with_event_loop("ws://localhost:8546", &eloop.handle()).unwrap());
 
     // Get the contract bytecode for instance from Solidity compiler
     let bytecode: Vec<u8> = include_str!("./build/SimpleEvent.bin").from_hex().unwrap();
@@ -24,9 +25,7 @@ fn main() {
                 .unwrap()
                 .confirmations(1)
                 .poll_interval(time::Duration::from_secs(10))
-                .options(Options::with(|opt| {
-                    opt.gas = Some(3_000_000.into())
-                }))
+                .options(Options::with(|opt| opt.gas = Some(3_000_000.into())))
                 .execute(bytecode, (), accounts[0])
                 .unwrap()
                 .then(move |contract| {
@@ -56,12 +55,10 @@ fn main() {
                         })
                         .map_err(|_| ());
 
-                    let call_future = contract
-                        .call("hello", (), accounts[0], Options::default())
-                        .then(|tx| {
-                            println!("got tx: {:?}", tx);
-                            Ok(())
-                        });
+                    let call_future = contract.call("hello", (), accounts[0], Options::default()).then(|tx| {
+                        println!("got tx: {:?}", tx);
+                        Ok(())
+                    });
 
                     event_future.join(call_future)
                 })

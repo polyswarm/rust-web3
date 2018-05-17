@@ -2,20 +2,20 @@
 
 use ethabi;
 
-use std::time;
+use Transport;
 use api::{Eth, Namespace};
 use confirm;
 use contract::tokens::{Detokenize, Tokenize};
+use std::time;
 use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, U256};
-use Transport;
 
+pub mod deploy;
 mod error;
 mod result;
-pub mod deploy;
 pub mod tokens;
 
-pub use contract::result::{CallResult, QueryResult};
 pub use contract::error::{Error, ErrorKind};
+pub use contract::result::{CallResult, QueryResult};
 
 /// Contract Call/Query Options
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -109,7 +109,14 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Execute a contract function and wait for confirmations
-    pub fn call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize) -> confirm::SendTransactionWithConfirmation<T>
+    pub fn call_with_confirmations<P>(
+        &self,
+        func: &str,
+        params: P,
+        from: Address,
+        options: Options,
+        confirmations: usize,
+    ) -> confirm::SendTransactionWithConfirmation<T>
     where
         P: Tokenize,
     {
@@ -174,7 +181,14 @@ impl<T: Transport> Contract<T> {
     }
 
     /// Call constant function
-    pub fn query<R, A, B, P>(&self, func: &str, params: P, from: A, options: Options, block: B) -> QueryResult<R, T::Out>
+    pub fn query<R, A, B, P>(
+        &self,
+        func: &str,
+        params: P,
+        from: A,
+        options: Options,
+        block: B,
+    ) -> QueryResult<R, T::Out>
     where
         R: Detokenize,
         A: Into<Option<Address>>,
@@ -208,13 +222,13 @@ impl<T: Transport> Contract<T> {
 
 #[cfg(test)]
 mod tests {
+    use super::{Contract, Options};
+    use Transport;
     use api::{self, Namespace};
     use futures::Future;
     use helpers::tests::TestTransport;
     use rpc;
     use types::{Address, BlockNumber, H256, U256};
-    use Transport;
-    use super::{Contract, Options};
 
     fn contract<T: Transport>(transport: &T) -> Contract<&T> {
         let eth = api::Eth::new(transport);
@@ -299,10 +313,7 @@ mod tests {
             let token = contract(&transport);
 
             // when
-            token
-                .call("name", (), 5.into(), Options::default())
-                .wait()
-                .unwrap()
+            token.call("name", (), 5.into(), Options::default()).wait().unwrap()
         };
 
         // then
@@ -357,13 +368,7 @@ mod tests {
 
             // when
             token
-                .query(
-                    "balanceOf",
-                    Address::from(5),
-                    None,
-                    Options::default(),
-                    None,
-                )
+                .query("balanceOf", Address::from(5), None, Options::default(), None)
                 .wait()
                 .unwrap()
         };
