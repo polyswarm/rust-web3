@@ -53,7 +53,14 @@ fn main() {
                             sub.for_each(|log| {
                                 println!("got log: {:?}", log);
                                 let hash = log.transaction_hash.expect("expected a transaction hash");
-                                &handle.spawn(wait_for_transaction_confirmation(transport, hash, time::Duration::from_secs(1), 12).and_then(|receipt| println!("CONFIRMED: {:?}", receipt)));
+                                &handle.spawn(
+                                    wait_for_transaction_confirmation(
+                                        transport,
+                                        hash,
+                                        time::Duration::from_secs(1),
+                                        12,
+                                    ).and_then(|receipt| println!("CONFIRMED: {:?}", receipt)),
+                                );
                                 Ok()
                             })
                         })

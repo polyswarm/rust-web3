@@ -242,7 +242,12 @@ impl<T: Transport> SendTransactionWithConfirmation<T> {
         }
     }
 
-    fn state_from_hash(transport: T, hash: H256, poll_interval: Duration, confirmations: usize) -> SendTransactionWithConfirmationState<T> {
+    fn state_from_hash(
+        transport: T,
+        hash: H256,
+        poll_interval: Duration,
+        confirmations: usize,
+    ) -> SendTransactionWithConfirmationState<T> {
         if confirmations > 0 {
             let confirmation_check = TransactionReceiptBlockNumberCheck::new(Eth::new(transport.clone()), hash.clone());
             let eth = Eth::new(transport.clone());
@@ -277,14 +282,12 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                         .take()
                         .expect("Error is initialized initially; future polled only once; qed"));
                 }
-                SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
-                    Self::state_from_hash(
-                        self.transport.clone(),
-                        try_ready!(future.poll()),
-                        self.poll_interval,
-                        self.confirmations,
-                    )
-                }
+                SendTransactionWithConfirmationState::SendTransaction(ref mut future) => Self::state_from_hash(
+                    self.transport.clone(),
+                    try_ready!(future.poll()),
+                    self.poll_interval,
+                    self.confirmations,
+                ),
                 SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
                     let _confirmed = try_ready!(Future::poll(future));
                     let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
