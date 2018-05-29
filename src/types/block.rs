@@ -90,7 +90,7 @@ pub struct Block<TX> {
     #[serde(rename = "totalDifficulty")]
     pub total_difficulty: U256,
     /// Seal fields
-    #[serde(rename = "sealFields")]
+    #[serde(rename = "sealFields", default = "Default::default")]
     pub seal_fields: Vec<Bytes>,
     /// Uncles' hashes
     pub uncles: Vec<H256>,
