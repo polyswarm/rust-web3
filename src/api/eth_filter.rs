@@ -47,33 +47,34 @@ impl<T: Transport, I: DeserializeOwned> Stream for FilterStream<T, I> {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        let next_state = match self.state {
-            FilterStreamState::WaitForInterval => {
-                let _ready = try_ready!(
-                    self.interval
-                        .poll()
-                        .map_err(|_| Error::from(ErrorKind::Unreachable))
-                );
-                let id = helpers::serialize(&self.base.id);
-                let future = CallFuture::new(
-                    self.base
-                        .transport
-                        .execute("eth_getFilterChanges", vec![id]),
-                );
-                FilterStreamState::GetFilterChanges(future)
-            }
-            FilterStreamState::GetFilterChanges(ref mut future) => {
-                let items = try_ready!(future.poll()).unwrap_or_default();
-                FilterStreamState::NextItem(items.into_iter())
-            }
-            FilterStreamState::NextItem(ref mut iter) => match iter.next() {
-                Some(item) => return Ok(Some(item).into()),
-                None => FilterStreamState::WaitForInterval,
-            },
-        };
-        self.state = next_state;
+        loop {
+            let next_state = match self.state {
+                FilterStreamState::WaitForInterval => {
+                    let _ready = try_ready!(
+                        self.interval
+                            .poll()
+                            .map_err(|_| Error::from(ErrorKind::Unreachable))
+                    );
+                    let id = helpers::serialize(&self.base.id);
+                    let future = CallFuture::new(
+                        self.base
+                            .transport
+                            .execute("eth_getFilterChanges", vec![id]),
+                    );
+                    FilterStreamState::GetFilterChanges(future)
+                }
+                FilterStreamState::GetFilterChanges(ref mut future) => {
+                    let items = try_ready!(future.poll()).unwrap_or_default();
+                    FilterStreamState::NextItem(items.into_iter())
+                }
+                FilterStreamState::NextItem(ref mut iter) => match iter.next() {
+                    Some(item) => return Ok(Some(item).into()),
+                    None => FilterStreamState::WaitForInterval,
+                },
+            };
+            self.state = next_state;
 
-        Ok(Async::NotReady)
+        }
     }
 }
 
