@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use futures::{Future, IntoFuture, Poll, Stream};
+use futures::{Async, Future, IntoFuture, Poll, Stream};
 use futures::stream::Skip;
 use api::{CreateFilter, Eth, EthFilter, FilterStream, Namespace};
 use types::{Bytes, H256, TransactionReceipt, TransactionRequest, U256};
@@ -57,30 +57,30 @@ where
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        loop {
-            let next_state = match self.state {
-                WaitForConfirmationsState::WaitForNextBlock => {
-                    let _ = try_ready!(self.filter_stream.poll());
-                    WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check().into_future())
+        let next_state = match self.state {
+            WaitForConfirmationsState::WaitForNextBlock => {
+                let _ = try_ready!(self.filter_stream.poll());
+                WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check().into_future())
+            }
+            WaitForConfirmationsState::CheckConfirmation(ref mut future) => match try_ready!(future.poll()) {
+                Some(confirmation_block_number) => {
+                    let future = self.eth.block_number();
+                    WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
                 }
-                WaitForConfirmationsState::CheckConfirmation(ref mut future) => match try_ready!(future.poll()) {
-                    Some(confirmation_block_number) => {
-                        let future = self.eth.block_number();
-                        WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
-                    }
-                    None => WaitForConfirmationsState::WaitForNextBlock,
-                },
-                WaitForConfirmationsState::CompareConfirmations(confirmation_block_number, ref mut block_number_future) => {
-                    let block_number = try_ready!(block_number_future.poll()).low_u64();
-                    if confirmation_block_number + self.confirmations as u64 <= block_number {
-                        return Ok(().into());
-                    } else {
-                        WaitForConfirmationsState::WaitForNextBlock
-                    }
+                None => WaitForConfirmationsState::WaitForNextBlock,
+            },
+            WaitForConfirmationsState::CompareConfirmations(confirmation_block_number, ref mut block_number_future) => {
+                let block_number = try_ready!(block_number_future.poll()).low_u64();
+                if confirmation_block_number + self.confirmations as u64 <= block_number {
+                    return Ok(().into());
+                } else {
+                    WaitForConfirmationsState::WaitForNextBlock
                 }
-            };
-            self.state = next_state;
-        }
+            }
+        };
+        self.state = next_state;
+
+        Ok(Async::NotReady)
     }
 }
 
@@ -126,28 +126,28 @@ where
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        loop {
-            let next_state = match self.state {
-                ConfirmationsState::Create(ref mut create) => {
-                    let filter = try_ready!(create.create_filter.poll());
-                    let future = WaitForConfirmations {
-                        eth: create.eth.take().expect("future polled after ready; qed"),
-                        state: WaitForConfirmationsState::WaitForNextBlock,
-                        filter_stream: filter
-                            .stream(create.poll_interval)
-                            .skip(create.confirmations as u64),
-                        confirmation_check: create
-                            .confirmation_check
-                            .take()
-                            .expect("future polled after ready; qed"),
-                        confirmations: create.confirmations,
-                    };
-                    ConfirmationsState::Wait(future)
-                }
-                ConfirmationsState::Wait(ref mut wait) => return Future::poll(wait),
-            };
-            self.state = next_state;
-        }
+        let next_state = match self.state {
+            ConfirmationsState::Create(ref mut create) => {
+                let filter = try_ready!(create.create_filter.poll());
+                let future = WaitForConfirmations {
+                    eth: create.eth.take().expect("future polled after ready; qed"),
+                    state: WaitForConfirmationsState::WaitForNextBlock,
+                    filter_stream: filter
+                        .stream(create.poll_interval)
+                        .skip(create.confirmations as u64),
+                    confirmation_check: create
+                        .confirmation_check
+                        .take()
+                        .expect("future polled after ready; qed"),
+                    confirmations: create.confirmations,
+                };
+                ConfirmationsState::Wait(future)
+            }
+            ConfirmationsState::Wait(ref mut wait) => return Future::poll(wait),
+        };
+        self.state = next_state;
+
+        Ok(Async::NotReady)
     }
 }
 
@@ -275,31 +275,31 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        loop {
-            let next_state = match self.state {
-                SendTransactionWithConfirmationState::Error(ref mut error) => {
-                    return Err(error
-                        .take()
-                        .expect("Error is initialized initially; future polled only once; qed"));
-                }
-                SendTransactionWithConfirmationState::SendTransaction(ref mut future) => Self::state_from_hash(
-                    &self.transport,
-                    try_ready!(future.poll()),
-                    self.poll_interval,
-                    self.confirmations,
-                ),
-                SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
-                    let _confirmed = try_ready!(Future::poll(future));
-                    let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
-                    SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
-                }
-                SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
-                    let receipt = try_ready!(Future::poll(future)).expect("receipt can't be null after wait for confirmations; qed");
-                    return Ok(receipt.into());
-                }
-            };
-            self.state = next_state;
-        }
+        let next_state = match self.state {
+            SendTransactionWithConfirmationState::Error(ref mut error) => {
+                return Err(error
+                    .take()
+                    .expect("Error is initialized initially; future polled only once; qed"));
+            }
+            SendTransactionWithConfirmationState::SendTransaction(ref mut future) => Self::state_from_hash(
+                &self.transport,
+                try_ready!(future.poll()),
+                self.poll_interval,
+                self.confirmations,
+            ),
+            SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
+                let _confirmed = try_ready!(Future::poll(future));
+                let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
+                SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
+            }
+            SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
+                let receipt = try_ready!(Future::poll(future)).expect("receipt can't be null after wait for confirmations; qed");
+                return Ok(receipt.into());
+            }
+        };
+        self.state = next_state;
+
+        Ok(Async::NotReady)
     }
 }
 
