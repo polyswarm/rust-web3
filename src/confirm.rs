@@ -127,28 +127,29 @@ where
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let next_state = match self.state {
-            ConfirmationsState::Create(ref mut create) => {
-                let filter = try_ready!(create.create_filter.poll());
-                let future = WaitForConfirmations {
-                    eth: create.eth.take().expect("future polled after ready; qed"),
-                    state: WaitForConfirmationsState::WaitForNextBlock,
-                    filter_stream: filter
-                        .stream(create.poll_interval)
-                        .skip(create.confirmations as u64),
-                    confirmation_check: create
-                        .confirmation_check
-                        .take()
-                        .expect("future polled after ready; qed"),
-                    confirmations: create.confirmations,
-                };
-                ConfirmationsState::Wait(future)
-            }
-            ConfirmationsState::Wait(ref mut wait) => return Future::poll(wait),
-        };
-        self.state = next_state;
+        loop {
+            let next_state = match self.state {
+                ConfirmationsState::Create(ref mut create) => {
+                    let filter = try_ready!(create.create_filter.poll());
+                    let future = WaitForConfirmations {
+                        eth: create.eth.take().expect("future polled after ready; qed"),
+                        state: WaitForConfirmationsState::WaitForNextBlock,
+                        filter_stream: filter
+                            .stream(create.poll_interval)
+                            .skip(create.confirmations as u64),
+                        confirmation_check: create
+                            .confirmation_check
+                            .take()
+                            .expect("future polled after ready; qed"),
+                        confirmations: create.confirmations,
+                    };
+                    ConfirmationsState::Wait(future)
+                }
+                ConfirmationsState::Wait(ref mut wait) => return Future::poll(wait),
+            };
+            self.state = next_state;
 
-        Ok(Async::NotReady)
+        }
     }
 }
 
