@@ -277,31 +277,32 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let next_state = match self.state {
-            SendTransactionWithConfirmationState::Error(ref mut error) => {
-                return Err(error
-                    .take()
-                    .expect("Error is initialized initially; future polled only once; qed"));
-            }
-            SendTransactionWithConfirmationState::SendTransaction(ref mut future) => Self::state_from_hash(
-                &self.transport,
-                try_ready!(future.poll()),
-                self.poll_interval,
-                self.confirmations,
-            ),
-            SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
-                let _confirmed = try_ready!(Future::poll(future));
-                let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
-                SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
-            }
-            SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
-                let receipt = try_ready!(Future::poll(future)).expect("receipt can't be null after wait for confirmations; qed");
-                return Ok(receipt.into());
-            }
-        };
-        self.state = next_state;
+        loop {
+            let next_state = match self.state {
+                SendTransactionWithConfirmationState::Error(ref mut error) => {
+                    return Err(error
+                        .take()
+                        .expect("Error is initialized initially; future polled only once; qed"));
+                }
+                SendTransactionWithConfirmationState::SendTransaction(ref mut future) => Self::state_from_hash(
+                    &self.transport,
+                    try_ready!(future.poll()),
+                    self.poll_interval,
+                    self.confirmations,
+                ),
+                SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
+                    let _confirmed = try_ready!(Future::poll(future));
+                    let receipt_future = Eth::new(&self.transport).transaction_receipt(hash);
+                    SendTransactionWithConfirmationState::GetTransactionReceipt(receipt_future)
+                }
+                SendTransactionWithConfirmationState::GetTransactionReceipt(ref mut future) => {
+                    let receipt = try_ready!(Future::poll(future)).expect("receipt can't be null after wait for confirmations; qed");
+                    return Ok(receipt.into());
+                }
+            };
+            self.state = next_state;
 
-        Ok(Async::NotReady)
+        }
     }
 }
 
