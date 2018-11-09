@@ -57,30 +57,31 @@ where
     type Error = Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let next_state = match self.state {
-            WaitForConfirmationsState::WaitForNextBlock => {
-                let _ = try_ready!(self.filter_stream.poll());
-                WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check().into_future())
-            }
-            WaitForConfirmationsState::CheckConfirmation(ref mut future) => match try_ready!(future.poll()) {
-                Some(confirmation_block_number) => {
-                    let future = self.eth.block_number();
-                    WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
+        loop {
+            let next_state = match self.state {
+                WaitForConfirmationsState::WaitForNextBlock => {
+                    let _ = try_ready!(self.filter_stream.poll());
+                    WaitForConfirmationsState::CheckConfirmation(self.confirmation_check.check().into_future())
                 }
-                None => WaitForConfirmationsState::WaitForNextBlock,
-            },
-            WaitForConfirmationsState::CompareConfirmations(confirmation_block_number, ref mut block_number_future) => {
-                let block_number = try_ready!(block_number_future.poll()).low_u64();
-                if confirmation_block_number + self.confirmations as u64 <= block_number {
-                    return Ok(().into());
-                } else {
-                    WaitForConfirmationsState::WaitForNextBlock
+                WaitForConfirmationsState::CheckConfirmation(ref mut future) => match try_ready!(future.poll()) {
+                    Some(confirmation_block_number) => {
+                        let future = self.eth.block_number();
+                        WaitForConfirmationsState::CompareConfirmations(confirmation_block_number.low_u64(), future)
+                    }
+                    None => WaitForConfirmationsState::WaitForNextBlock,
+                },
+                WaitForConfirmationsState::CompareConfirmations(confirmation_block_number, ref mut block_number_future) => {
+                    let block_number = try_ready!(block_number_future.poll()).low_u64();
+                    if confirmation_block_number + self.confirmations as u64 <= block_number {
+                        return Ok(().into());
+                    } else {
+                        WaitForConfirmationsState::WaitForNextBlock
+                    }
                 }
-            }
-        };
-        self.state = next_state;
+            };
+            self.state = next_state;
 
-        Ok(Async::NotReady)
+        }
     }
 }
 
