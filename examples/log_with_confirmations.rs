@@ -11,15 +11,15 @@ use web3::types::FilterBuilder;
 
 fn main() {
     let mut eloop = tokio_core::reactor::Core::new().unwrap();
-    let handle = eloop.handle();
     let transport = web3::transports::WebSocket::with_event_loop("ws://localhost:8546", &eloop.handle()).unwrap();
-    let web3 = web3::Web3::new(&transport);
+    let web3 = web3::Web3::new(transport.clone());
 
     // Get the contract bytecode for instance from Solidity compiler
     let bytecode: Vec<u8> = include_str!("./build/SimpleEvent.bin").from_hex().unwrap();
 
+    let handle = eloop.handle();
     eloop
-        .run(web3.eth().accounts().then(|accounts| {
+        .run(web3.eth().accounts().then(move |accounts| {
             let accounts = accounts.unwrap();
             println!("accounts: {:?}", &accounts);
 
@@ -32,6 +32,7 @@ fn main() {
                 .unwrap()
                 .then(move |contract| {
                     let contract = contract.unwrap();
+
                     println!("contract deployed at: {}", contract.address());
 
                     // Filter for Hello event in our contract
@@ -49,19 +50,24 @@ fn main() {
 
                     let confirmation_future = web3.eth_subscribe()
                         .subscribe_logs(filter)
-                        .and_then(|sub| {
-                            sub.for_each(|log| {
+                        .and_then(move |sub| {
+                            sub.for_each(move |log| {
                                 println!("got log: {:?}", log);
                                 let hash = log.transaction_hash.expect("expected a transaction hash");
-                                &handle.spawn(
+
+                                handle.spawn(
                                     wait_for_transaction_confirmation(
-                                        transport,
+                                        transport.clone(),
                                         hash,
                                         time::Duration::from_secs(1),
                                         12,
-                                    ).and_then(|receipt| println!("CONFIRMED: {:?}", receipt)),
+                                    ).and_then(|receipt| {
+                                        println!("CONFIRMED: {:?}", receipt);
+                                        Ok(())
+                                    }).map_err(|_| ()),
                                 );
-                                Ok()
+
+                                Ok(())
                             })
                         })
                         .map_err(|_| ());
