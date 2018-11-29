@@ -10,6 +10,14 @@ extern crate parking_lot;
 extern crate rustc_hex;
 extern crate serde;
 extern crate tokio_timer;
+extern crate ethstore;
+extern crate ethkey;
+extern crate hex;
+extern crate tiny_keccak;
+extern crate ethcore_transaction;
+extern crate heapsize;
+extern crate rlp;
+extern crate keccak_hash as hash;
 
 #[cfg_attr(test, macro_use)]
 extern crate serde_json;

@@ -24,7 +24,16 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 tokio-timer = "0.1"
+hex = "0.3.2"
+tiny-keccak = "1.4.2"
+keccak-hash = "0.1"
+sha3 = "0.8.1"
 url = "1.7"
+heapsize = "0.4"
+rlp = { version = "0.3.0", features = ["ethereum"] }
+ethcore-transaction = { git = "https://github.com/paritytech/parity-ethereum" }
+ethstore = { git = "https://github.com/paritytech/parity-ethereum" }
+ethkey = { git = "https://github.com/paritytech/parity-ethereum" }
 # Optional deps
 hyper = { version = "0.11", optional = true }
 hyper-tls = { version = "0.1", optional = true }

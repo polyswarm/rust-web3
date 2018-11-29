@@ -6,8 +6,9 @@ use std::time;
 use api::{Eth, Namespace};
 use confirm;
 use contract::tokens::{Detokenize, Tokenize};
-use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, U256};
+use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, RawTransactionRequest, U256};
 use Transport;
+use ethstore::{SimpleSecretStore, StoreAccountRef, EthStore};
 
 mod error;
 mod result;
@@ -136,6 +137,52 @@ impl<T: Transport> Contract<T> {
                     poll_interval,
                     confirmations,
                 )
+            })
+            .unwrap_or_else(|e| {
+                // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
+                // `contract::Error` instead of more generic `Error`.
+                confirm::SendTransactionWithConfirmation::from_err(
+                    self.eth.transport().clone(),
+                    ::error::ErrorKind::Decoder(format!("{:?}", e)),
+                )
+            })
+    }
+
+
+    /// Execute a contract function and wait for confirmations using a keyfile
+    pub fn send_raw_call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize, chain_id: usize, store: EthStore, password: &str) -> confirm::SendTransactionWithConfirmation<T>
+    where
+        P: Tokenize,
+    {
+
+        let poll_interval = time::Duration::from_secs(1);
+
+        self.abi
+            .function(func.into())
+            .and_then(|function| function.encode_input(&params.into_tokens()))
+            .map(|fn_data| {
+                let transaction_request = RawTransactionRequest {
+                    from: from,
+                    chain_id: chain_id,
+                    to: Some(self.address.clone()),
+                    gas: options.gas,
+                    gas_price: options.gas_price,
+                    value: options.value,
+                    nonce: options.nonce,
+                    data: Some(Bytes(fn_data)),
+                    condition: options.condition,
+                };
+
+                let raw_tx = transaction_request.hash();
+                let signed_tx = store.sign(&StoreAccountRef::root(from.into()), &password.into(), &raw_tx).unwrap();
+
+                confirm::send_raw_transaction_with_confirmation(
+                    self.eth.transport().clone(),
+                    Bytes(signed_tx.into_electrum().to_vec()),
+                    poll_interval,
+                    confirmations,
+                )
+
             })
             .unwrap_or_else(|e| {
                 // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
@@ -379,4 +426,5 @@ mod tests {
         transport.assert_no_more_requests();
         assert_eq!(result, 0x20.into());
     }
+
 }
