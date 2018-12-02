@@ -178,7 +178,7 @@ impl<T: Transport> Contract<T> {
 
                 confirm::send_raw_transaction_with_confirmation(
                     self.eth.transport().clone(),
-                    Bytes(signed_tx.into_electrum().to_vec()),
+                    transaction_request.with_signature(signed_tx),
                     poll_interval,
                     confirmations,
                 )

@@ -1,6 +1,7 @@
 use types::{Address, Bytes, U256, H256};
 use hash::keccak;
 use rlp::{RlpStream};
+use ethkey::{Signature};
 
 /// Call contract request (eth_call / eth_estimateGas)
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -26,7 +27,7 @@ pub struct CallRequest {
 }
 
 /// Send Transaction Parameters
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct RawTransactionRequest {
     /// Sender address
     pub from: Address,
@@ -56,17 +57,30 @@ pub struct RawTransactionRequest {
     pub condition: Option<TransactionCondition>,
 }
 
+/// Signed transaction information without verified signature.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct UnverifiedTransaction {
+    unsigned: RawTransactionRequest,
+    v: u64,
+    r: U256,
+    s: U256,
+}
+
 
 impl RawTransactionRequest {
     /// From eth parity
     /// Append object with a without signature into RLP stream
     pub fn rlp_append_unsigned_transaction(&self, s: &mut RlpStream) {
-        s.begin_list(self.chain_id);
+        s.begin_unbounded_list();
         s.append(&self.nonce);
         s.append(&self.gas_price);
         s.append(&self.gas);
-        s.append(&self.data);
         s.append(&self.value);
+        s.append(&self.data);
+        s.append(&self.chain_id);
+        s.append(&0u8);
+        s.append(&0u8);
+        s.complete_unbounded_list();
     }
 
     /// The message hash of the transaction.
@@ -74,6 +88,47 @@ impl RawTransactionRequest {
         let mut stream = RlpStream::new();
         self.rlp_append_unsigned_transaction(&mut stream);
         keccak(stream.as_raw())
+    }
+
+    /// Signs the transaction with signature.
+    pub fn with_signature(self, sig: Signature) -> Bytes {
+        UnverifiedTransaction {
+            unsigned: self,
+            r: sig.r().into(),
+            s: sig.s().into(),
+            v: sig.v().into(),
+        }.tx_bytes()
+    }
+
+
+}
+
+
+impl rlp::Encodable for UnverifiedTransaction {
+    fn rlp_append(&self, s: &mut RlpStream) { self.rlp_append_sealed_transaction(s) }
+}
+
+impl UnverifiedTransaction {
+    /// Append object with a signature into RLP stream
+    fn rlp_append_sealed_transaction(&self, s: &mut RlpStream) {
+        s.begin_unbounded_list();
+        s.append(&self.unsigned.nonce);
+        s.append(&self.unsigned.gas_price);
+        s.append(&self.unsigned.gas);
+        s.append(&self.unsigned.value);
+        s.append(&self.unsigned.data);
+        s.append(&self.unsigned.chain_id);
+        s.append(&self.v);
+        s.append(&self.r);
+        s.append(&self.s);
+        s.complete_unbounded_list();
+    }
+
+    /// Get the hash of this transaction (keccak of the RLP).
+    pub fn tx_bytes(&self) -> Bytes {
+        let mut stream = RlpStream::new();
+        self.rlp_append_sealed_transaction(&mut stream);
+        Bytes(stream.as_raw().to_vec())
     }
 
 }
@@ -187,7 +242,6 @@ mod tests {
 
     #[test]
     fn should_get_tx() {
-        // given
         let tx_request = RawTransactionRequest {
             from: 5.into(),
             to: None,
@@ -204,7 +258,8 @@ mod tests {
 
         assert_eq!(
             tx_hash,
-            H256::from_str("8378603b0ac95d711b8863cb869e5fa6983438aa1977a767f63d9d3f7f941caf").unwrap()
+            H256::from_str("eb3c26073eb6f9b51f6843132f7fcfbb150f2bdef7e6efe83b03b127e9a5a50c").unwrap()
         );
     }
 }
+

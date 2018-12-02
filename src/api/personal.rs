@@ -87,7 +87,7 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::TransactionRequest;
+    use types::{TransactionRequest, RawTransactionRequest};
     use ethstore::ethkey::{KeyPair, verify_address};
     use ethkey::Message;
     use ethstore::{SimpleSecretStore, StoreAccountRef};
@@ -129,12 +129,9 @@ mod tests {
         let transport = TestTransport::default();
         let personal = Personal::new(&transport);
         let kp1 = KeyPair::from_secret("000081c29e8142bb6a81bef5a92bda7a8328a5c85bb2f9542e76f9b0f94fc018".parse().unwrap()).unwrap();
-
         let store = personal.get_store_for_keyfiles(&"src/api/test/keyfiles");
         let accounts = store.accounts().unwrap();
-        
         let message = Message::from_str("8378603b0ac95d711b8863cb869e5fa6983438aa1977a767f63d9d3f7f941caf").unwrap();
-
         let s1 = store.sign(&accounts[0], &"foo".into(), &message).unwrap();
 
         assert_eq!(accounts, vec![
@@ -143,6 +140,36 @@ mod tests {
 
         assert!(verify_address(&accounts[0].address, &s1, &message).unwrap());
         assert!(verify_address(&kp1.address(), &s1, &message).unwrap());
+    }
+
+    #[test]
+    fn test_keyfile_tx_signature() {
+        let transport = TestTransport::default();
+        let personal = Personal::new(&transport);
+        let store = personal.get_store_for_keyfiles(&"src/api/test/keyfiles");
+        let accounts = store.accounts().unwrap();
+        
+        assert_eq!(accounts, vec![
+            StoreAccountRef::root("31e9d1e6d844bd3a536800ef8d8be6a9975db509".into()),
+        ]);
+
+        let tx_request = RawTransactionRequest {
+            from: 5.into(),
+            to: None,
+            chain_id: 1338,
+            gas: Some(21_000.into()),
+            gas_price: None,
+            value: Some(5_000_000.into()),
+            data: Some(vec![1, 2, 3].into()),
+            nonce: None,
+            condition: None,
+        };
+
+        let tx_hash = tx_request.hash();
+        let password = "foo";
+        let signature = store.sign(&accounts[0], &password.into(), &tx_hash).unwrap();
+        let tx_rlp = tx_request.with_signature(signature);
+
     }
 
 }
