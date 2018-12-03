@@ -12,8 +12,6 @@ extern crate serde;
 extern crate tokio_timer;
 extern crate ethstore;
 extern crate ethkey;
-extern crate hex;
-extern crate tiny_keccak;
 extern crate ethcore_transaction;
 extern crate heapsize;
 extern crate rlp;

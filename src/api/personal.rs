@@ -168,7 +168,7 @@ mod tests {
         let tx_hash = tx_request.hash();
         let password = "foo";
         let signature = store.sign(&accounts[0], &password.into(), &tx_hash).unwrap();
-        let tx_rlp = tx_request.with_signature(signature);
+        let _tx_rlp = tx_request.with_signature(signature);
 
     }
 
