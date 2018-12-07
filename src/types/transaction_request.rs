@@ -124,24 +124,24 @@ impl rlp::Encodable for UnverifiedTransaction {
 impl UnverifiedTransaction {
     /// Append object with a signature into RLP stream
     fn rlp_append_sealed_transaction(&self, s: &mut RlpStream) {
-        s.begin_unbounded_list();
+        s.begin_list(9);
         s.append(&self.unsigned.nonce);
         s.append(&self.unsigned.gas_price);
         s.append(&self.unsigned.gas);
         s.append(&self.unsigned.to);
         s.append(&self.unsigned.value);
         s.append(&self.unsigned.data);
-        s.append(&self.unsigned.chain_id);
         s.append(&self.v);
         s.append(&self.r);
         s.append(&self.s);
-        s.complete_unbounded_list();
     }
 
     /// Get the hash of this transaction (keccak of the RLP).
     pub fn tx_bytes(&self) -> Bytes {
         let mut stream = RlpStream::new();
         self.rlp_append_sealed_transaction(&mut stream);
+        println!("h256 of tx_bytes");
+        println!("{:?}", H256::from(stream.as_raw()));
         Bytes(stream.as_raw().to_vec())
     }
 

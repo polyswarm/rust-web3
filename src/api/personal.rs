@@ -85,7 +85,7 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::{TransactionRequest, RawTransactionRequest, Address};
+    use types::{TransactionRequest, RawTransactionRequest, Address, H256};
 
     use ethstore::ethkey::{KeyPair, verify_address};
     use ethkey::Message;
