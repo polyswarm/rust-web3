@@ -7,7 +7,6 @@ use ethstore::{EthStore};
 use Transport;
 use ethstore::accounts_dir::RootDiskDirectory;
 
-
 /// `Personal` namespace
 #[derive(Debug, Clone)]
 pub struct Personal<T> {
@@ -64,7 +63,6 @@ impl<T: Transport> Personal<T> {
         };
         let dir = RootDiskDirectory::at(path);
         EthStore::open(Box::new(dir)).unwrap()
-
     }
 
     /// Sends a transaction from locked account.
@@ -87,7 +85,8 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::{TransactionRequest, RawTransactionRequest};
+    use types::{TransactionRequest, RawTransactionRequest, Address};
+
     use ethstore::ethkey::{KeyPair, verify_address};
     use ethkey::Message;
     use ethstore::{SimpleSecretStore, StoreAccountRef};
@@ -154,14 +153,14 @@ mod tests {
         ]);
 
         let tx_request = RawTransactionRequest {
-            from: 5.into(),
-            to: None,
+            from: Address::from("0x31e9d1e6d844bd3a536800ef8d8be6a9975db509"),
+            to: Some(Address::from("0x1463500476a3ADDa33ef1dF530063fE126203186")),
             chain_id: 1338,
             gas: Some(21_000.into()),
-            gas_price: None,
-            value: Some(5_000_000.into()),
+            gas_price: Some(1_000.into()),
+            value: Some(123.into()),
             data: Some(vec![1, 2, 3].into()),
-            nonce: None,
+            nonce: Some(0.into()),
             condition: None,
         };
 

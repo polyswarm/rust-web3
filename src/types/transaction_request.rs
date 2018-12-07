@@ -1,5 +1,5 @@
 use types::{Address, Bytes, U256, H256};
-use hash::keccak;
+use tiny_keccak::keccak256;
 use rlp::{RlpStream};
 use ethkey::{Signature};
 
@@ -69,12 +69,17 @@ pub struct UnverifiedTransaction {
 
 impl RawTransactionRequest {
     /// From eth parity
+    /// EIP155 spec:
+    /// when computing the hash of a transaction for purposes of signing or recovering,
+    /// instead of hashing only the first six elements (ie. nonce, gasprice, startgas, to, value, data),
+    /// hash nine elements, with v replaced by CHAIN_ID, r = 0 and s = 0
     /// Append object with a without signature into RLP stream
     pub fn rlp_append_unsigned_transaction(&self, s: &mut RlpStream) {
         s.begin_unbounded_list();
         s.append(&self.nonce);
         s.append(&self.gas_price);
         s.append(&self.gas);
+        s.append(&self.to);
         s.append(&self.value);
         s.append(&self.data);
         s.append(&self.chain_id);
@@ -87,7 +92,8 @@ impl RawTransactionRequest {
     pub fn hash(&self) -> H256 {
         let mut stream = RlpStream::new();
         self.rlp_append_unsigned_transaction(&mut stream);
-        keccak(stream.as_raw())
+
+        H256::from(keccak256(&stream.out()))
     }
 
     /// Signs the transaction with signature.
@@ -115,6 +121,7 @@ impl UnverifiedTransaction {
         s.append(&self.unsigned.nonce);
         s.append(&self.unsigned.gas_price);
         s.append(&self.unsigned.gas);
+        s.append(&self.unsigned.to);
         s.append(&self.unsigned.value);
         s.append(&self.unsigned.data);
         s.append(&self.unsigned.chain_id);
@@ -258,7 +265,7 @@ mod tests {
 
         assert_eq!(
             tx_hash,
-            H256::from_str("eb3c26073eb6f9b51f6843132f7fcfbb150f2bdef7e6efe83b03b127e9a5a50c").unwrap()
+            H256::from_str("ea5741b6688031897f75ff78801c5acebe2a477c711a22d9d19e136650087241").unwrap()
         );
     }
 }

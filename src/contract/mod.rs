@@ -173,8 +173,15 @@ impl<T: Transport> Contract<T> {
                     condition: options.condition,
                 };
 
+                println!("{:?}", transaction_request);
+
                 let raw_tx = transaction_request.hash();
+
+                println!("{:?}", raw_tx);
+
                 let signed_tx = store.sign(&StoreAccountRef::root(from.into()), &password.into(), &raw_tx).unwrap();
+
+                println!("{:?}", signed_tx);
 
                 confirm::send_raw_transaction_with_confirmation(
                     self.eth.transport().clone(),
