@@ -32,7 +32,7 @@ pub struct RawTransactionRequest {
     /// Sender address
     pub from: Address,
     /// chain id
-    pub chain_id: usize,
+    pub chain_id: u64,
     /// Recipient address (None for contract creation)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub to: Option<Address>,
@@ -68,7 +68,7 @@ pub struct UnverifiedTransaction {
 
 
 impl RawTransactionRequest {
-    /// From eth parity
+    /// From ethereum parity
     /// EIP155 spec:
     /// when computing the hash of a transaction for purposes of signing or recovering,
     /// instead of hashing only the first six elements (ie. nonce, gasprice, startgas, to, value, data),
@@ -99,16 +99,23 @@ impl RawTransactionRequest {
     /// Signs the transaction with signature.
     pub fn with_signature(self, sig: Signature) -> Bytes {
         UnverifiedTransaction {
-            unsigned: self,
             r: sig.r().into(),
             s: sig.s().into(),
-            v: sig.v().into(),
+            v: signature::add_chain_replay_protection(sig.v().into(), Some(self.chain_id.into())),
+            unsigned: self,
         }.tx_bytes()
     }
 
 
 }
 
+/// Replay protection logic for v part of transaction's signature
+pub mod signature {
+    /// Adds chain id into v
+    pub fn add_chain_replay_protection(v: u64, chain_id: Option<u64>) -> u64 {
+        v + if let Some(n) = chain_id { 35 + n * 2 } else { 27 }
+    }
+}
 
 impl rlp::Encodable for UnverifiedTransaction {
     fn rlp_append(&self, s: &mut RlpStream) { self.rlp_append_sealed_transaction(s) }

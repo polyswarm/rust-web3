@@ -150,7 +150,7 @@ impl<T: Transport> Contract<T> {
 
 
     /// Execute a contract function and wait for confirmations using a keyfile
-    pub fn send_raw_call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize, chain_id: usize, store: EthStore, password: &str) -> confirm::SendTransactionWithConfirmation<T>
+    pub fn send_raw_call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize, chain_id: u64, store: EthStore, password: &str) -> confirm::SendTransactionWithConfirmation<T>
     where
         P: Tokenize,
     {
@@ -172,16 +172,8 @@ impl<T: Transport> Contract<T> {
                     data: Some(Bytes(fn_data)),
                     condition: options.condition,
                 };
-
-                println!("{:?}", transaction_request);
-
                 let raw_tx = transaction_request.hash();
-
-                println!("{:?}", raw_tx);
-
                 let signed_tx = store.sign(&StoreAccountRef::root(from.into()), &password.into(), &raw_tx).unwrap();
-
-                println!("{:?}", signed_tx);
 
                 confirm::send_raw_transaction_with_confirmation(
                     self.eth.transport().clone(),
