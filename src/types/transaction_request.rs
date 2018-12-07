@@ -136,12 +136,9 @@ impl UnverifiedTransaction {
         s.append(&self.s);
     }
 
-    /// Get the hash of this transaction (keccak of the RLP).
     pub fn tx_bytes(&self) -> Bytes {
         let mut stream = RlpStream::new();
         self.rlp_append_sealed_transaction(&mut stream);
-        println!("h256 of tx_bytes");
-        println!("{:?}", H256::from(stream.as_raw()));
         Bytes(stream.as_raw().to_vec())
     }
 
