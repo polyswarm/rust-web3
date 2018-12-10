@@ -85,7 +85,7 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::{TransactionRequest, RawTransactionRequest, Address};
+    use types::{TransactionRequest, RawTransactionRequest, Address, H256};
 
     use ethstore::ethkey::{KeyPair, verify_address};
     use ethkey::Message;
@@ -153,21 +153,21 @@ mod tests {
         ]);
 
         let tx_request = RawTransactionRequest {
-            from: Address::from("0x31e9d1e6d844bd3a536800ef8d8be6a9975db509"),
-            to: Some(Address::from("0x1463500476a3ADDa33ef1dF530063fE126203186")),
-            chain_id: 1338,
-            gas: Some(21_000.into()),
-            gas_price: Some(1_000.into()),
-            value: Some(123.into()),
-            data: Some(vec![1, 2, 3].into()),
+            to: Some(Address::from("0x31e9d1e6d844bd3a536800ef8d8be6a9975db509")),
+            chain_id: 1338.into(),
+            gas: Some(1000000000.into()),
+            gas_price: Some(1000.into()),
+            value: Some(1_000_000_000.into()),
+            data: Some(vec![].into()),
             nonce: Some(0.into()),
-            condition: None,
         };
 
+        println!("personal rlp");
         let tx_hash = tx_request.hash();
+
         let password = "foo";
         let signature = store.sign(&accounts[0], &password.into(), &tx_hash).unwrap();
-        let _tx_rlp = tx_request.with_signature(signature);
+        let _tx_rlp = tx_request.with_signature(&signature);
 
     }
 

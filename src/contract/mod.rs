@@ -162,22 +162,21 @@ impl<T: Transport> Contract<T> {
             .and_then(|function| function.encode_input(&params.into_tokens()))
             .map(|fn_data| {
                 let transaction_request = RawTransactionRequest {
-                    from: from,
-                    chain_id: chain_id,
+                    chain_id: chain_id.into(),
                     to: Some(self.address.clone()),
                     gas: options.gas,
                     gas_price: options.gas_price,
                     value: options.value,
                     nonce: options.nonce,
-                    data: Some(Bytes(fn_data)),
-                    condition: options.condition,
+                    data: Some(fn_data),
                 };
                 let raw_tx = transaction_request.hash();
                 let signed_tx = store.sign(&StoreAccountRef::root(from.into()), &password.into(), &raw_tx).unwrap();
+                let tx_with_sig = transaction_request.with_signature(&signed_tx);
 
                 confirm::send_raw_transaction_with_confirmation(
                     self.eth.transport().clone(),
-                    transaction_request.with_signature(signed_tx),
+                    Bytes(tx_with_sig),
                     poll_interval,
                     confirmations,
                 )
