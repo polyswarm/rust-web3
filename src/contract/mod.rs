@@ -6,9 +6,11 @@ use std::time;
 use api::{Eth, Namespace};
 use confirm;
 use contract::tokens::{Detokenize, Tokenize};
-use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, RawTransactionRequest, U256};
+use ethcore_transaction::{Action, Transaction as RawTransactionRequest};
+use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, U256};
 use Transport;
 use ethstore::{SimpleSecretStore, StoreAccountRef, EthStore};
+use rlp::{RlpStream, Encodable};
 
 mod error;
 mod result;
@@ -162,21 +164,22 @@ impl<T: Transport> Contract<T> {
             .and_then(|function| function.encode_input(&params.into_tokens()))
             .map(|fn_data| {
                 let transaction_request = RawTransactionRequest {
-                    chain_id: chain_id.into(),
-                    to: Some(self.address.clone()),
-                    gas: options.gas,
-                    gas_price: options.gas_price,
-                    value: options.value,
-                    nonce: options.nonce,
-                    data: Some(fn_data),
+                    action: Action::Call(self.address.clone()),
+                    gas: options.gas.unwrap(),
+                    gas_price: options.gas_price.unwrap(),
+                    value: options.value.unwrap(),
+                    nonce: options.nonce.unwrap(),
+                    data: fn_data,
                 };
-                let raw_tx = transaction_request.hash();
+                let mut s = RlpStream::new();
+                let raw_tx = transaction_request.hash(Some(chain_id));
                 let signed_tx = store.sign(&StoreAccountRef::root(from.into()), &password.into(), &raw_tx).unwrap();
-                let tx_with_sig = transaction_request.with_signature(&signed_tx);
+                let tx_with_sig = transaction_request.with_signature(signed_tx, Some(chain_id));
+                tx_with_sig.rlp_append(&mut s);
 
                 confirm::send_raw_transaction_with_confirmation(
                     self.eth.transport().clone(),
-                    Bytes(tx_with_sig),
+                    s.as_raw().to_vec().into(),
                     poll_interval,
                     confirmations,
                 )

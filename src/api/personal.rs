@@ -85,8 +85,8 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::{TransactionRequest, RawTransactionRequest, Address, H256};
-
+    use ethcore_transaction::{Action, Transaction as RawTransactionRequest};
+    use types::{TransactionRequest};
     use ethstore::ethkey::{KeyPair, verify_address};
     use ethkey::Message;
     use ethstore::{SimpleSecretStore, StoreAccountRef};
@@ -153,21 +153,19 @@ mod tests {
         ]);
 
         let tx_request = RawTransactionRequest {
-            to: Some(Address::from("0x31e9d1e6d844bd3a536800ef8d8be6a9975db509")),
-            chain_id: 1338.into(),
-            gas: Some(1000000000.into()),
-            gas_price: Some(1000.into()),
-            value: Some(1_000_000_000.into()),
-            data: Some(vec![].into()),
-            nonce: Some(0.into()),
+            nonce: 0.into(),
+            gas_price: 42.into(),
+            gas: 69.into(),
+            action: Action::Call("0x0000000000000000000000000000000000000000".into()),
+            value: 1337.into(),
+            data: vec![],
         };
 
-        println!("personal rlp");
-        let tx_hash = tx_request.hash();
-
+        let chain_id = 1338;
+        let tx_hash = tx_request.hash(Some(chain_id));
         let password = "foo";
         let signature = store.sign(&accounts[0], &password.into(), &tx_hash).unwrap();
-        let _tx_rlp = tx_request.with_signature(&signature);
+        let _tx_rlp = tx_request.with_signature(signature, Some(chain_id));
 
     }
 
