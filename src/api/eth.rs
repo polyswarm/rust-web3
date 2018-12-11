@@ -182,7 +182,6 @@ impl<T: Transport> Eth<T> {
     /// Get nonce
     pub fn transaction_count(&self, address: Address, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
         let address = helpers::serialize(&address);
-
         let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
 
         CallFuture::new(
@@ -190,19 +189,6 @@ impl<T: Transport> Eth<T> {
                 .execute("eth_getTransactionCount", vec![address, block]),
         )
     }
-
-    /// Get nonce
-    pub fn transaction_count_test(&self, address: Address, block: Option<BlockNumber>) -> CallFuture<U256, T::Out> {
-        let address = helpers::serialize(&address);
-
-        let block = helpers::serialize(&block.unwrap_or(BlockNumber::Latest));
-
-        CallFuture::new(
-            self.transport
-                .execute("eth_getTransactionCount", vec![address, block]),
-        )
-    }
-
 
     /// Get transaction
     pub fn transaction(&self, id: TransactionId) -> CallFuture<Option<Transaction>, T::Out> {

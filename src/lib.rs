@@ -15,7 +15,6 @@ extern crate ethkey;
 extern crate ethcore_transaction;
 extern crate heapsize;
 extern crate rlp;
-extern crate tiny_keccak;
 
 #[cfg_attr(test, macro_use)]
 extern crate serde_json;

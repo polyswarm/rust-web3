@@ -3,9 +3,9 @@
 use api::Namespace;
 use helpers::{self, CallFuture};
 use types::{Address, H256, TransactionRequest};
+use ethstore::accounts_dir::RootDiskDirectory;
 use ethstore::{EthStore};
 use Transport;
-use ethstore::accounts_dir::RootDiskDirectory;
 
 /// `Personal` namespace
 #[derive(Debug, Clone)]
@@ -54,8 +54,8 @@ impl<T: Transport> Personal<T> {
         )
     }
 
-    /// Unlock decrypt keyfile
-    /// Returns private key
+    /// Get keyfile stores
+    /// Returns Store of all the keyfiles in keydir
     pub fn get_store_for_keyfiles(&self, keyfile_dir: &str) -> EthStore {
         let path = match ::std::fs::metadata(keyfile_dir) {
             Ok(_) => keyfile_dir.into(),
