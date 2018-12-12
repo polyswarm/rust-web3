@@ -6,11 +6,8 @@ use std::time;
 use api::{Eth, Namespace};
 use confirm;
 use contract::tokens::{Detokenize, Tokenize};
-use ethcore_transaction::{Action, Transaction as RawTransactionRequest};
 use types::{Address, BlockNumber, Bytes, CallRequest, H256, TransactionCondition, TransactionRequest, U256};
 use Transport;
-use ethstore::{SimpleSecretStore, StoreAccountRef, EthStore};
-use rlp::{RlpStream, Encodable};
 
 mod error;
 mod result;
@@ -111,6 +108,19 @@ impl<T: Transport> Contract<T> {
             .unwrap_or_else(Into::into)
     }
 
+    /// Gets function data to be sent with a transaction
+    pub fn get_function_data<P>(&self, func: &str, params: P)-> Result<Vec<u8>, ethabi::Error>
+    where
+        P: Tokenize,
+    {
+        Ok(self.abi
+            .function(func.into())
+            .and_then(|function| function.encode_input(&params.into_tokens()))
+            .map(move |data| {
+                data
+            })?)
+    }
+
     /// Execute a contract function and wait for confirmations
     pub fn call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize) -> confirm::SendTransactionWithConfirmation<T>
     where
@@ -151,48 +161,17 @@ impl<T: Transport> Contract<T> {
     }
 
 
-    /// Execute a contract function and wait for confirmations using a keyfile
-    pub fn send_raw_call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize, chain_id: u64, store: EthStore, password: &str) -> confirm::SendTransactionWithConfirmation<T>
-    where
-        P: Tokenize,
+    /// Execute a contract function and wait for confirmations using bytes
+    pub fn send_raw_call_with_confirmations(&self, tx: Bytes, confirmations: usize) -> confirm::SendTransactionWithConfirmation<T>
     {
-
         let poll_interval = time::Duration::from_secs(1);
+        confirm::send_raw_transaction_with_confirmation(
+            self.eth.transport().clone(),
+            tx,
+            poll_interval,
+            confirmations,
+        )
 
-        self.abi
-            .function(func.into())
-            .and_then(|function| function.encode_input(&params.into_tokens()))
-            .map(|fn_data| {
-                let transaction_request = RawTransactionRequest {
-                    action: Action::Call(self.address.clone()),
-                    gas: options.gas.unwrap(),
-                    gas_price: options.gas_price.unwrap(),
-                    value: options.value.unwrap(),
-                    nonce: options.nonce.unwrap(),
-                    data: fn_data,
-                };
-                let mut s = RlpStream::new();
-                let raw_tx = transaction_request.hash(Some(chain_id));
-                let signed_tx = store.sign(&StoreAccountRef::root(from.into()), &password.into(), &raw_tx).unwrap();
-                let tx_with_sig = transaction_request.with_signature(signed_tx, Some(chain_id));
-                tx_with_sig.rlp_append(&mut s);
-
-                confirm::send_raw_transaction_with_confirmation(
-                    self.eth.transport().clone(),
-                    s.as_raw().to_vec().into(),
-                    poll_interval,
-                    confirmations,
-                )
-
-            })
-            .unwrap_or_else(|e| {
-                // TODO [ToDr] SendTransactionWithConfirmation should support custom error type (so that we can return
-                // `contract::Error` instead of more generic `Error`.
-                confirm::SendTransactionWithConfirmation::from_err(
-                    self.eth.transport().clone(),
-                    ::error::ErrorKind::Decoder(format!("{:?}", e)),
-                )
-            })
     }
 
     /// Estimate gas required for this function call.

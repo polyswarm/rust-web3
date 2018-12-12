@@ -2,7 +2,6 @@ use std::fmt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{Error, Visitor};
 use rustc_hex::{FromHex, ToHex};
-use rlp::{Encodable, RlpStream};
 
 /// Raw bytes wrapper
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -11,12 +10,6 @@ pub struct Bytes(pub Vec<u8>);
 impl<T: Into<Vec<u8>>> From<T> for Bytes {
     fn from(data: T) -> Self {
         Bytes(data.into())
-    }
-}
-
-impl Encodable for Bytes {
-    fn rlp_append(&self, s: &mut RlpStream) {
-        s.encoder().encode_value(&self.0);
     }
 }
 
