@@ -108,6 +108,19 @@ impl<T: Transport> Contract<T> {
             .unwrap_or_else(Into::into)
     }
 
+    /// Gets function data to be sent with a transaction
+    pub fn get_function_data<P>(&self, func: &str, params: P)-> Result<Vec<u8>, ethabi::Error>
+    where
+        P: Tokenize,
+    {
+        Ok(self.abi
+            .function(func.into())
+            .and_then(|function| function.encode_input(&params.into_tokens()))
+            .map(move |data| {
+                data
+            })?)
+    }
+
     /// Execute a contract function and wait for confirmations
     pub fn call_with_confirmations<P>(&self, func: &str, params: P, from: Address, options: Options, confirmations: usize) -> confirm::SendTransactionWithConfirmation<T>
     where
@@ -145,6 +158,20 @@ impl<T: Transport> Contract<T> {
                     ::error::ErrorKind::Decoder(format!("{:?}", e)),
                 )
             })
+    }
+
+
+    /// Execute a contract function and wait for confirmations using bytes
+    pub fn send_raw_call_with_confirmations(&self, tx: Bytes, confirmations: usize) -> confirm::SendTransactionWithConfirmation<T>
+    {
+        let poll_interval = time::Duration::from_secs(1);
+        confirm::send_raw_transaction_with_confirmation(
+            self.eth.transport().clone(),
+            tx,
+            poll_interval,
+            confirmations,
+        )
+
     }
 
     /// Estimate gas required for this function call.
@@ -379,4 +406,5 @@ mod tests {
         transport.assert_no_more_requests();
         assert_eq!(result, 0x20.into());
     }
+
 }

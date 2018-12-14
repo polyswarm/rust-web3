@@ -3,7 +3,6 @@
 use api::Namespace;
 use helpers::{self, CallFuture};
 use types::{Address, H256, TransactionRequest};
-
 use Transport;
 
 /// `Personal` namespace
@@ -63,6 +62,8 @@ impl<T: Transport> Personal<T> {
                 .execute("personal_sendTransaction", vec![transaction, password]),
         )
     }
+
+
 }
 
 #[cfg(test)]
@@ -71,8 +72,7 @@ mod tests {
 
     use api::Namespace;
     use rpc::Value;
-    use types::TransactionRequest;
-
+    use types::{TransactionRequest};
     use super::Personal;
 
     rpc_test! (
@@ -103,4 +103,5 @@ mod tests {
     "personal_sendTransaction", vec![r#"{"from":"0x0000000000000000000000000000000000000123","gasPrice":"0x1","to":"0x0000000000000000000000000000000000000123","value":"0x1"}"#, r#""hunter2""#];
     Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
   );
+
 }

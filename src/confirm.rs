@@ -398,7 +398,6 @@ mod tests {
             );
             future.wait()
         };
-
         transport.assert_request(
             "eth_sendTransaction",
             &[
