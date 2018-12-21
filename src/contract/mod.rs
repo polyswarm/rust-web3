@@ -113,12 +113,10 @@ impl<T: Transport> Contract<T> {
     where
         P: Tokenize,
     {
-        Ok(self.abi
+        self.abi
             .function(func.into())
             .and_then(|function| function.encode_input(&params.into_tokens()))
-            .map(move |data| {
-                data
-            })?)
+
     }
 
     /// Execute a contract function and wait for confirmations
