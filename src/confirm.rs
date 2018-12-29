@@ -276,12 +276,13 @@ impl<T: Transport> Future for SendTransactionWithConfirmation<T> {
                         .expect("Error is initialized initially; future polled only once; qed"));
                 }
                 SendTransactionWithConfirmationState::SendTransaction(ref mut future) => {
-                    Self::hash(
-                        self.transport.clone(),
-                        try_ready!(future.poll()),
-                        self.poll_interval,
-                        self.confirmations,
-                    ).state
+                    return Err("Will this show?".into())
+                    // Self::hash(
+                    //     self.transport.clone(),
+                    //     try_ready!(future.poll()),
+                    //     self.poll_interval,
+                    //     self.confirmations,
+                    // ).state
                 }
                 SendTransactionWithConfirmationState::WaitForConfirmations(hash, ref mut future) => {
                     let _confirmed = try_ready!(Future::poll(future));
