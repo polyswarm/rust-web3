@@ -1,26 +1,15 @@
 //! Ethereum JSON-RPC client (Web3).
 
+#![allow(
+    clippy::type_complexity,
+    clippy::wrong_self_convention,
+    clippy::single_match,
+    clippy::let_unit_value,
+    clippy::match_wild_err_arm
+)]
 #![warn(missing_docs)]
 
-extern crate arrayvec;
-extern crate ethabi;
-extern crate ethereum_types;
-extern crate jsonrpc_core as rpc;
-extern crate parking_lot;
-extern crate rustc_hex;
-extern crate serde;
-extern crate tokio_timer;
-extern crate base64;
-
-#[cfg_attr(test, macro_use)]
-extern crate serde_json;
-
-#[macro_use]
-extern crate error_chain;
-#[macro_use]
-extern crate log;
-#[macro_use]
-extern crate serde_derive;
+use jsonrpc_core as rpc;
 
 /// Re-export of the `futures` crate.
 #[macro_use]
@@ -39,11 +28,11 @@ pub mod types;
 
 pub mod confirm;
 
-pub use error::{Error, ErrorKind};
-pub use api::Web3;
+pub use crate::api::Web3;
+pub use crate::error::Error;
 
 /// RPC result
-pub type Result<T> = Box<futures::Future<Item = T, Error = Error> + Send + 'static>;
+pub type Result<T> = Box<dyn futures::Future<Item = T, Error = Error> + Send + 'static>;
 
 /// Assigned RequestId
 pub type RequestId = usize;
@@ -144,15 +133,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use api::Web3;
-    use futures::Future;
     use super::{rpc, Error, RequestId, Transport};
+    use crate::api::Web3;
+    use futures::Future;
+    use std::sync::Arc;
 
     #[derive(Debug, Clone)]
     struct FakeTransport;
     impl Transport for FakeTransport {
-        type Out = Box<Future<Item = rpc::Value, Error = Error> + Send + 'static>;
+        type Out = Box<dyn Future<Item = rpc::Value, Error = Error> + Send + 'static>;
 
         fn prepare(&self, _method: &str, _params: Vec<rpc::Value>) -> (RequestId, rpc::Call) {
             unimplemented!()

@@ -1,10 +1,10 @@
 //! `Web3` namespace
 
-use api::Namespace;
-use helpers::{self, CallFuture};
-use types::{Bytes, H256};
+use crate::api::Namespace;
+use crate::helpers::{self, CallFuture};
+use crate::types::{Bytes, H256};
 
-use Transport;
+use crate::Transport;
 
 /// `Web3` namespace
 #[derive(Debug, Clone)]
@@ -42,9 +42,9 @@ impl<T: Transport> Web3<T> {
 mod tests {
     use futures::Future;
 
-    use api::Namespace;
-    use types::Bytes;
-    use rpc::Value;
+    use crate::api::Namespace;
+    use crate::rpc::Value;
+    use crate::types::{Bytes, H256};
 
     use super::Web3;
 
@@ -57,6 +57,6 @@ mod tests {
     Web3:sha3, Bytes(vec![1, 2, 3, 4])
     =>
     "web3_sha3", vec![r#""0x01020304""#];
-    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => 0x123
+    Value::String("0x0000000000000000000000000000000000000000000000000000000000000123".into()) => H256::from_low_u64_be(0x123)
   );
 }

@@ -1,5 +1,5 @@
-use serde::{Serialize, Serializer};
-use types::{Bytes, H160, H2048, H256, U128, U256};
+use crate::types::{Bytes, H160, H2048, H256, H64, U256, U64};
+use serde::{Deserialize, Serialize, Serializer};
 
 /// The block header type returned from RPC calls.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -25,7 +25,7 @@ pub struct BlockHeader {
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
     /// Block number. None if pending.
-    pub number: Option<U128>,
+    pub number: Option<U64>,
     /// Gas Used
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
@@ -42,11 +42,16 @@ pub struct BlockHeader {
     pub timestamp: U256,
     /// Difficulty
     pub difficulty: U256,
+    /// Mix Hash
+    #[serde(rename = "mixHash")]
+    pub mix_hash: Option<H256>,
+    /// Nonce
+    pub nonce: Option<H64>,
 }
 
 /// The block type returned from RPC calls.
 /// This is generic over a `TX` type.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Block<TX> {
     /// Hash of the block
     pub hash: Option<H256>,
@@ -69,7 +74,7 @@ pub struct Block<TX> {
     #[serde(rename = "receiptsRoot")]
     pub receipts_root: H256,
     /// Block number. None if pending.
-    pub number: Option<U128>,
+    pub number: Option<U64>,
     /// Gas Used
     #[serde(rename = "gasUsed")]
     pub gas_used: U256,
@@ -98,6 +103,11 @@ pub struct Block<TX> {
     pub transactions: Vec<TX>,
     /// Size in bytes
     pub size: Option<U256>,
+    /// Mix Hash
+    #[serde(rename = "mixHash")]
+    pub mix_hash: Option<H256>,
+    /// Nonce
+    pub nonce: Option<H64>,
 }
 
 /// Block Number
@@ -110,12 +120,12 @@ pub enum BlockNumber {
     /// Pending block (not yet part of the blockchain)
     Pending,
     /// Block by number from canon chain
-    Number(u64),
+    Number(U64),
 }
 
-impl From<u64> for BlockNumber {
-    fn from(num: u64) -> Self {
-        BlockNumber::Number(num)
+impl<T: Into<U64>> From<T> for BlockNumber {
+    fn from(num: T) -> Self {
+        BlockNumber::Number(num.into())
     }
 }
 
@@ -154,8 +164,8 @@ impl Serialize for BlockId {
     }
 }
 
-impl From<u64> for BlockId {
-    fn from(num: u64) -> Self {
+impl From<U64> for BlockId {
+    fn from(num: U64) -> Self {
         BlockNumber::Number(num).into()
     }
 }
