@@ -151,4 +151,5 @@ mod tests {
     ::serde_json::from_str(EXAMPLE_TX).unwrap()
     => ::serde_json::from_str::<RawTransaction>(EXAMPLE_TX).unwrap()
   );
+
 }
